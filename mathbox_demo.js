@@ -84,7 +84,7 @@ var MathBoxDemo = function(settings){
 MathBoxDemo.prototype.sanitizeSettings = function(settings){
     this.defaultSettings = {
         interactiveCamera:true,
-        zoomEnabled:true,
+        zoomEnabled: !settings.twoDimensional,
         twoDimensional:false,
         range: {
             xMin: settings.twoDimensional ? -10 : -5,
