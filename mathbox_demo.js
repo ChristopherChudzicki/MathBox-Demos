@@ -68,6 +68,8 @@ var MathBoxDemo = function(settings){
     this.swizzleOrder = settings.twoDimensional ? "xyz" : "yzx";
     settings = this.sanitizeSettings(settings);
     this.settings = settings;
+    this.functions = {};
+    
     this.mathbox = this.initializeMathBox();
     this.scene = this.setupScene();
     
@@ -112,24 +114,24 @@ MathBoxDemo.prototype.sanitizeSettings = function(settings){
     
     settings = _.merge({}, this.defaultSettings, settings);
 
-    function genDefaultAxisSettings(axisIdx, axisLabel) {
+    function genDefaultAxisSettings(axisId, axisLabel) {
         // swizzle: user ---> mathbox
         // double swizzle: mathbox ---> user
         var mathboxAxes = this.swizzle(this.swizzle({x:'x', y:'y', z:'z'}))
         
         var tickLabelOffset = undefined;
-        if (axisIdx === 'y' && settings.twoDimensional){
+        if (axisId === 'y' && settings.twoDimensional){
             tickLabelOffset = [20, 0, 0];
         }
-        if (axisIdx === 'z') {
+        if (axisId === 'z') {
             tickLabelOffset = [20,0,0];
         }
         
         var defaultAxisSettings = {
             axisLabel: axisLabel,
             labelOffset: [0,25,0],
-            axis: {width:2, axis: mathboxAxes[axisIdx]},
-            scale: {divide:10, nice:true, zero:false, axis: mathboxAxes[axisIdx]},
+            axis: {width:2, axis: mathboxAxes[axisId]},
+            scale: {divide:10, nice:true, zero:false, axis: mathboxAxes[axisId]},
             ticks: {width:2},
             ticksFormat: {digits:2},
             ticksLabel: {offset:tickLabelOffset}
@@ -228,12 +230,12 @@ MathBoxDemo.prototype.drawAxes = function(){
         drawSingleAxis('z');
     }
     
-    function drawSingleAxis(axisIdx){
-        var axisSettings = axes[axisIdx];
+    function drawSingleAxis(axisId){
+        var axisSettings = axes[axisId];
                
         axesGroup
             .group()
-                .set('id','axis-' + axisIdx)
+                .set('id','axis-' + axisId)
                 .set('classes',['axis'])
                 .axis(axisSettings.axis)
                 .scale(axisSettings.scale)
@@ -256,11 +258,11 @@ MathBoxDemo.prototype.drawAxesLabels = function(){
         drawAxisLabel('z');
     }
     
-    function drawAxisLabel(axisIdx){
+    function drawAxisLabel(axisId){
         // TODO: append labels to axis groups 
         // scene's range is a THREE.Vec2 object; its y-value is range maximum.
         var axisNums = {'x':0,'y':1,'z':2};
-        var axisNum = axisNums[axisIdx];
+        var axisNum = axisNums[axisId];
         var labelPos = [0,0,0];
         labelPos[axisNum] = scene.get().range[axisNum].y;
         scene.group()
@@ -271,10 +273,10 @@ MathBoxDemo.prototype.drawAxesLabels = function(){
                 live: false
             })
             .text({
-                data: [ axes[axisIdx].axisLabel ]
+                data: [ axes[axisId].axisLabel ]
             })
             .label({
-                offset: axes[axisIdx].labelOffset
+                offset: axes[axisId].labelOffset
             })
         .end()
     }
@@ -402,12 +404,7 @@ MathBoxDemo.prototype.lightenColor = function(color, amt){
     return "#"+RR+GG+BB;
 }
 
-MathBoxDemo.prototype.parse = function(functionString, variables){
-    if (functionString === "") {
-        return null
-    } else
-    return Parser.parse( functionString ).toJSFunction( variables )
-}
+// Save URL Methods
 
 MathBoxDemo.prototype.saveSettingsAsUrl = function(){
     // camera is a THREE js Vec3 object
@@ -440,9 +437,114 @@ MathBoxDemo.prototype.appendSaveUrlModal = function(){
     $("body").append(modalTemplate);
 }
 
+// Drawing Methods
 
+MathBoxDemo.prototype.parse = function(functionString, variables){
+    if (functionString === "") {
+        return null
+    } else
+    return Parser.parse( functionString ).toJSFunction( variables )
+}
 
+MathBoxDemo.prototype.parseParametricFunction = function(functionSettings){
+    var func = {}
+    func.xJS = this.parse( functionSettings.x, ['t'] );
+    func.yJS = this.parse( functionSettings.y, ['t'] );
+    func.zJS = this.parse( functionSettings.z, ['t'] );
+    return func;
+}
 
+MathBoxDemo.prototype.drawParametricCurve = function(funcSettings, parentObject){
+    //funcSettings has been parsed first.
+    var funcId = funcSettings.id;
+    var xJS = this.functions[funcId].xJS;
+    var yJS = this.functions[funcId].yJS;
+    var zJS = this.functions[funcId].zJS;
+    var tMin = funcSettings.tMin;
+    var tMax = funcSettings.tMax;
+    var color = funcSettings.color;
+    
+    parentObject = defaultVal(parentObject, this.scene);
+    var group = parentObject.group().set('classes', ['parametric-curve'])
+    
+    group.interval({
+        id: "data-parametric-curve-" + funcId,
+        range: [tMin, tMax],
+        width: 64,
+        expr: function (emit, u, i, time) {
+            emit( xJS(u), yJS(u), zJS(u) );
+      },
+      channels: 3,
+    }).swizzle({
+      order: this.swizzleOrder
+    }).line({
+      color: color,
+      width: 6,
+    });
+    
+}
+
+MathBoxDemo.prototype.drawPoint = function(pointSettings, parentObject) {
+    var pointId = pointSettings.id;
+    var x = pointSettings.x;
+    var y = pointSettings.y;
+    var z = pointSettings.z;
+    var color = pointSettings.color;
+    
+    parentObject = defaultVal(parentObject, this.scene);
+    var group = parentObject.group().set('classes', ['point'])
+    
+    group.array({
+        id: "data-point-" + pointId,
+        data: [x,y,z],
+        live:true,
+        items: 1,
+        channels: 3,
+    }).swizzle({
+      order: this.swizzleOrder
+    }).point({
+        color: color,
+        size: 12,
+    });
+    
+}
+
+MathBoxDemo.prototype.updatePoint = function(pointSettings) {
+    var pointData = this.scene.select("#data-point-" + pointSettings.id);
+    pointData.set("data", [pointSettings.x, pointSettings.y, pointSettings.z] );
+}
+
+MathBoxDemo.prototype.drawVector = function(vectorSettings, parentObject) {
+    var tail = vectorSettings.tail;
+    var tip = vectorSettings.tip;
+    var vecId = vectorSettings.id;
+    
+    var color = vectorSettings.color;
+    
+    parentObject = defaultVal(parentObject, this.scene);
+    var group = parentObject.group().set('classes', ['vector'])
+    
+    group.array({
+        id: "data-vector-" + vecId,
+        data: [tail, tip],
+        live:true,
+        items: 2,
+        channels: 3,
+    }).swizzle({
+      order: this.swizzleOrder
+    }).vector({
+        color: color,
+        width: 3,
+        size: 3,
+        end: true,
+    });
+    
+}
+
+MathBoxDemo.prototype.updateVector = function(vectorSettings) {
+    var vectorData = this.scene.select("#data-vector-" + vectorSettings.id);
+    vectorData.set("data", [vectorSettings.tail, vectorSettings.tip] );
+}
 
 var Demo_ParametricCurves = function(element_id, settings){
     MathBoxDemo.call(this, element_id, settings );
@@ -458,6 +560,7 @@ Demo_ParametricCurves.prototype.sanitizeSettings = function(settings) {
     var moreDefaultSettings = {
         functions: {
             a: {
+                id: 'a',
                 x:'3*cos(t)',
                 y:'3*sin(t)',
                 z: settings.twoDimensional ? '0' : 't/3.14',
@@ -468,6 +571,7 @@ Demo_ParametricCurves.prototype.sanitizeSettings = function(settings) {
                 color: '#3090FF',
             },
             b: {
+                id:'b',
                 x:'',
                 y:'',
                 z: settings.twoDimensional ? '0' : '',
@@ -478,6 +582,7 @@ Demo_ParametricCurves.prototype.sanitizeSettings = function(settings) {
                 color: 'orange'
             },
             c: {
+                id:'c',
                 x:'',
                 y:'',
                 z: settings.twoDimensional ? '0' : '',
@@ -495,79 +600,72 @@ Demo_ParametricCurves.prototype.sanitizeSettings = function(settings) {
     return settings
 }
 
-Demo_ParametricCurves.prototype.drawFunctionVisualization = function(funcIdx) {
-    var funcSettings = this.settings.functions[funcIdx]
-    var func = this.functions[funcIdx];
-    var xJS = func.xJS;
-    var yJS = func.yJS;
-    var zJS = func.zJS;
+Demo_ParametricCurves.prototype.drawVis = function(funcSettings){
+    this.functions[funcSettings.id] = this.parseParametricFunction(funcSettings);
+    
+    var group = this.scene.group().set('classes',['function-visualization'])
+    
+    this.drawParametricCurve(funcSettings, group);
+    
     var t = funcSettings.t;
-    var tMin = funcSettings.tMin;
-    var tMax = funcSettings.tMax;
+    var func = this.functions[funcSettings.id];
+    var x = func.xJS(t);
+    var y = func.yJS(t);
+    var z = func.zJS(t);
     
-    var funcGroup = this.scene.group().set('classes',['function-vis']);
-    funcGroup.interval({
-        id: "curve-data-" + funcIdx,
-        range: [tMin, tMax],
-        width: 64,
-        expr: function (emit, u, i, time) {
-            emit( xJS(u), yJS(u), zJS(u) );
-      },
-      channels: 3,
-    }).swizzle({
-      order: this.swizzleOrder
-    }).line({
-      color: funcSettings.color,
-      width: 6,
-    });
+    var pointSettings = {
+        id:funcSettings.id,
+        x:x,
+        y:y,
+        z:z,
+        color:this.lightenColor(funcSettings.color, -0.33)
+    }
+    this.drawPoint(pointSettings, group);
     
-    funcGroup.array({
-        id: "position-data-" + funcIdx,
-        data: [[0,0,0], [xJS(t), yJS(t), zJS(t)]],
-        live:true,
-        items: 2,
-        channels: 3,
-    }).swizzle({
-      order: this.swizzleOrder
-    }).vector({
+    var posVectorSettings = {
+        id: 'position-'+funcSettings.id,
+        tail: [0,0,0],
+        tip: [x,y,z],
         color: 'black',
-        width: 3,
-        size: 4,
-        end: true,
-    }).resample({
-        width:1,
-        paddingX:1,
-    })
-    .point({
-        color: this.lightenColor(funcSettings.color, -0.33),
-        size: 12,
-    });
-    
+    }
+    this.drawVector(posVectorSettings, group);
 }
 
-Demo_ParametricCurves.prototype.updateScene_t = function(funcIdx) {
-    var pos_data = this.scene.select("#position-data-" + funcIdx);
+Demo_ParametricCurves.prototype.updateVis_t = function(funcSettings) {
+
+    var t = funcSettings.t;
+    var func = this.functions[funcSettings.id];
+    var x = func.xJS(t);
+    var y = func.yJS(t);
+    var z = func.zJS(t);
     
-    var t = this.settings.functions[funcIdx].t;
-    var func = this.functions[funcIdx];
-    var xJS = func.xJS;
-    var yJS = func.yJS;
-    var zJS = func.zJS;
+    var pointSettings = {
+        id:funcSettings.id,
+        x:x,
+        y:y,
+        z:z,
+        color:this.lightenColor(funcSettings.color, -0.33)
+    }
+    this.updatePoint(pointSettings);
     
-    pos_data.set("data", [[0,0,0], [xJS(t), yJS(t), zJS(t)]] );
+    var posVectorSettings = {
+        id: 'position-'+funcSettings.id,
+        tail: [0,0,0],
+        tip: [x,y,z],
+        color: 'black',
+    }
+    this.updateVector(posVectorSettings);
 }
 
-Demo_ParametricCurves.prototype.updateScene_tRange = function(funcIdx) {
+Demo_ParametricCurves.prototype.updateVis_tRange = function(funcId) {
     //TODO: This does not currently work. It updates the range property, but does not change curve.
-    var curve_data = this.scene.select("#curve-data-" + funcIdx);
-    var funcSettings = this.settings.functions[funcIdx]
-    curve_data.set("range", [funcSettings.tMin, funcSettings.tMax] );
+    // var curve_data = this.scene.select("#curve-data-" + funcId);
+    // var funcSettings = this.settings.functions[funcId]
+    // curve_data.set("range", [funcSettings.tMin, funcSettings.tMax] );
 }
 
 Demo_ParametricCurves.prototype.customizeGui = function(gui){
     var settings = this.settings;
-    var updateScene_t = this.updateScene_t.bind(this);
-    var updateScene_tRange = this.updateScene_tRange.bind(this)
     
     var folder0 = gui.addFolder("Functions");
     $(folder0.domElement).addClass("functions-folder");
@@ -578,8 +676,10 @@ Demo_ParametricCurves.prototype.customizeGui = function(gui){
     addFunctionFolder('b', "Function B", false)
     addFunctionFolder('c', "Function C", false)
     
-    function addFunctionFolder(funcIdx, folderName, openFolder){
-        var functionSettings = settings.functions[funcIdx]
+    var updateVis_t = this.updateVis_t.bind(this); //for use below 
+    var updateVis_tRange = this.updateVis_tRange.bind(this); // for use below
+    function addFunctionFolder(funcId, folderName, openFolder){
+        var functionSettings = settings.functions[funcId]
         var funcFolder = folder0.addFolder(folderName);
         if (openFolder){ funcFolder.open(); }
         
@@ -598,15 +698,16 @@ Demo_ParametricCurves.prototype.customizeGui = function(gui){
             .step(0.01);
         
         tSlider.onChange( function(e){
-            updateScene_t(funcIdx);
+            updateVis_t(functionSettings);
         } )
         if (functionSettings.isDrawable){
             tSlider.animate = true;
             MathBoxDemo.prototype.animateDatGuiSlider(tSlider);
-        } 
-        else { 
-            tSlider.animate = false 
         }
+        else {
+            tSlider.animate = false
+        }
+        
         
         funcFolder.add(tSlider, 'animate').onChange(function(e){
             if (e) {
@@ -615,11 +716,11 @@ Demo_ParametricCurves.prototype.customizeGui = function(gui){
         });
         
         funcFolder.add(functionSettings, 'tMin').onChange( function(){
-            updateScene_tRange(funcIdx);
+            updateVis_tRange(funcId);
             tSlider.min( functionSettings.tMin );
         } );
         funcFolder.add(functionSettings, 'tMax').onChange( function(){
-            updateScene_tRange(funcIdx);
+            updateVis_tRange(funcId);
             tSlider.max( functionSettings.tMax );
         } );
         
@@ -630,23 +731,14 @@ Demo_ParametricCurves.prototype.customizeGui = function(gui){
 Demo_ParametricCurves.prototype.redrawScene = function() {
     MathBoxDemo.prototype.redrawScene.call(this);
     
-    var settings = this.settings;
-    if (this.functions === undefined) {
-        this.functions = {a:{},b:{},c:{}};
-    }
-    
     // Remove curves that are already drawn
-    this.mathbox.remove(".function-vis");
+    this.mathbox.remove(".function-visualization");
     
-    for (var key in this.settings.functions) {
-        var userFunc = this.settings.functions[key];
-        var func = this.functions[key];
-        func.xJS = this.parse( userFunc.x, ['t'] );
-        func.yJS = this.parse( userFunc.y, ['t'] );
-        func.zJS = this.parse( userFunc.z, ['t'] );
-        func.isDrawable = (func.xJS != null) && (func.yJS != null) && (func.zJS != null)
-        if (func.isDrawable){
-            this.drawFunctionVisualization(key);
+    for (var funcId in this.settings.functions) {
+        var funcSettings = this.settings.functions[funcId];
+        var isDrawable = (funcSettings.x != '') && (funcSettings.y != '') && (funcSettings.z != '')
+        if (isDrawable){
+            this.drawVis(funcSettings);
         }
     }
     
