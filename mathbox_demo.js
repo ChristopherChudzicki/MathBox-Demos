@@ -85,7 +85,8 @@ var MathBoxDemo = function(settings){
 
 MathBoxDemo.prototype.sanitizeSettings = function(settings){
     this.defaultSettings = {
-        interactiveCamera:true,
+        containerId: null,
+        frozen: Boolean(settings.twoDimensional),
         zoomEnabled: !settings.twoDimensional,
         twoDimensional:false,
         range: {
@@ -179,15 +180,27 @@ MathBoxDemo.prototype.swizzle = function(arg, swizzleOrder){
 
 MathBoxDemo.prototype.initializeMathBox = function(){
     settings = this.settings
-    var plugins = ['core', 'cursor'];
-    var controls = {};
-    if (settings.interactiveCamera){
-        plugins.push('controls');
-        controls.klass = THREE.OrbitControls;
+    
+    //Add a container for mathbox
+    if (settings.containerId === null){
+        settings.containerId = _.uniqueId();
+        var container = $("<div class='mathbox-container'></div>");
+        container.attr('id',settings.containerId);
+        $('body').append(container);
+    } else {
+        var container = $("#"+settings.containerId)
+        container.addClass('mathbox-container');
     }
+    if (settings.frozen){
+        container.addClass('frozen')
+    }
+    
+    var plugins = ['core', 'cursor','controls'];
+    var controls = {klass:THREE.OrbitControls};
     var mathbox = mathBox({
         plugins: plugins,
-        controls: controls
+        controls: controls,
+        element: container[0]
     });
     
     // setup camera
@@ -321,7 +334,7 @@ MathBoxDemo.prototype.makeGui = function(){
     this.customizeGui(this.gui);
     
     // The rest of GUI is common to all MathBoxDemos
-    var folder = this.gui.addFolder('Window Range');
+    var folder = this.gui.addFolder('Window & Camera');
 	var xMinGUI = folder.add( this.settings.range, 'xMin' );
 	var xMaxGUI = folder.add( this.settings.range, 'xMax' );
 	var yMinGUI = folder.add( this.settings.range, 'yMin' );
@@ -335,6 +348,11 @@ MathBoxDemo.prototype.makeGui = function(){
     zoomGUI.onChange(function(){
         this.noZoom = (!this.noZoom);
     }.bind(this.mathbox.three.controls) )
+    
+    var staticCameraGUI = folder.add(this.settings, 'frozen').name("Frozen");
+    staticCameraGUI.onChange(function(){
+        $('#'+settings.containerId).toggleClass("frozen");
+    })
     
     this.gui.add( this, 'redrawScene' ).name("Redraw Display");
     
