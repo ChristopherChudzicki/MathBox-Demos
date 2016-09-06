@@ -406,12 +406,13 @@ MathBoxDemo.prototype.lightenColor = function(color, amt){
 
 // Save URL Methods
 
-MathBoxDemo.prototype.saveSettingsAsUrl = function(){
+MathBoxDemo.prototype.saveSettingsAsUrl = function(settings){
+    settings = defaultVal(settings, this.settings);
     // camera is a THREE js Vec3 object
     var camera = this.mathbox.three.camera.position;
     // Round camera positions to keep encoded settings small.
-    this.settings.camera.position = [camera.x, camera.y, camera.z].map( function(x){return Math.round(x*100)/100; } );
-    var settingsDiff64 = window.btoa(JSON.stringify(deepObjectDiff(this.settings, this.defaultSettings)));
+    settings.camera.position = [camera.x, camera.y, camera.z].map( function(x){return Math.round(x*100)/100; } );
+    var settingsDiff64 = window.btoa(JSON.stringify(deepObjectDiff(settings, this.defaultSettings)));
     return window.location.href.split('?')[0] + "?settings=" + settingsDiff64
     return url;
 }
@@ -423,7 +424,7 @@ MathBoxDemo.prototype.decodeSettings64 = function(encodedSettings){
 }
 
 MathBoxDemo.prototype.displaySavedUrl = function(){
-    $("#save-url-modal textarea").text(this.saveSettingsAsUrl());
+    $("#save-url-modal textarea.default-saved-url").text(this.saveSettingsAsUrl());
     $("#save-url-modal").modal('show')
 }
 
@@ -431,7 +432,7 @@ MathBoxDemo.prototype.appendSaveUrlModal = function(){
     var modalTemplate = [
         '<div id="save-url-modal" style="display:none;">',
         '   <p>Revisit this graph at:</p>',
-        '   <textarea style="min-width:320px;min-height:100px;width:90%;height:90%"></textarea>',
+        '   <textarea class="default-saved-url" style="min-width:320px;min-height:100px;width:90%;height:90%"></textarea>',
         '</div>',
     ].join('\n');
     $("body").append(modalTemplate);
@@ -564,7 +565,7 @@ Demo_ParametricCurves.prototype.sanitizeSettings = function(settings) {
                 x:'3*cos(t)',
                 y:'3*sin(t)',
                 z: settings.twoDimensional ? '0' : 't/3.14',
-                isDrawable: true,
+                displayEquation:true,
                 t: 0.1,
                 tMin: 0,
                 tMax: +6.28,
@@ -575,7 +576,7 @@ Demo_ParametricCurves.prototype.sanitizeSettings = function(settings) {
                 x:'',
                 y:'',
                 z: settings.twoDimensional ? '0' : '',
-                isDrawable:false,
+                displayEquation:true,
                 t: 0.1,
                 tMin: -1,
                 tMax: +3,
@@ -586,7 +587,7 @@ Demo_ParametricCurves.prototype.sanitizeSettings = function(settings) {
                 x:'',
                 y:'',
                 z: settings.twoDimensional ? '0' : '',
-                isDrawable: false,
+                displayEquation:true,
                 t: 0.1,
                 tMin: -1,
                 tMax: +3,
@@ -683,10 +684,17 @@ Demo_ParametricCurves.prototype.customizeGui = function(gui){
         var funcFolder = folder0.addFolder(folderName);
         if (openFolder){ funcFolder.open(); }
         
-        funcFolder.add(functionSettings, 'x').name("<span class='equation-LHS'>X(t) = </span>");
-        funcFolder.add(functionSettings, 'y').name("<span class='equation-LHS'>Y(t) = </span>");
-        if (!settings.twoDimensional){ funcFolder.add(functionSettings, 'z').name("<span class='equation-LHS'>Z(t) = </span>"); }
+        var xGUI =funcFolder.add(functionSettings, 'x').name("<span class='equation-LHS'>X(t) = </span>");
+        var yGUI =funcFolder.add(functionSettings, 'y').name("<span class='equation-LHS'>Y(t) = </span>");
+        if (!settings.twoDimensional){ 
+            var zGUI = funcFolder.add(functionSettings, 'z').name("<span class='equation-LHS'>Z(t) = </span>"); 
+        }
         
+        if (!functionSettings.displayEquation){
+            $(xGUI.domElement).closest('li').hide();
+            $(yGUI.domElement).closest('li').hide();
+            $(zGUI.domElement).closest('li').hide();
+        }
         
         // TODO: live math rendering. The next two lines might be useful.
         // $(xGui.domElement).closest("li").after("<li style='border-top:0px'><span class='property-name'>&nbsp;</span>\\(a+b\\)</li>")
@@ -700,7 +708,7 @@ Demo_ParametricCurves.prototype.customizeGui = function(gui){
         tSlider.onChange( function(e){
             updateVis_t(functionSettings);
         } )
-        if (functionSettings.isDrawable){
+        if (functionSettings.x != '' && functionSettings.y != '' && functionSettings.z != ''){
             tSlider.animate = true;
             MathBoxDemo.prototype.animateDatGuiSlider(tSlider);
         }
@@ -742,4 +750,23 @@ Demo_ParametricCurves.prototype.redrawScene = function() {
         }
     }
     
+}
+
+Demo_ParametricCurves.prototype.appendSaveUrlModal = function(settings) {
+    MathBoxDemo.prototype.appendSaveUrlModal.call(this, settings);
+    var custom = [
+        '<p>...or with functions hidden:</p>',
+        '<textarea class="custom-saved-url" style="min-width:320px;min-height:100px;width:90%;height:90%"></textarea>'
+    ].join('\n');
+    $('#save-url-modal').append(custom);
+}
+
+Demo_ParametricCurves.prototype.displaySavedUrl = function(settings) {
+    MathBoxDemo.prototype.displaySavedUrl.call(this, settings);
+    var modifiedSettings = _.merge({},this.settings);
+    for (var key in modifiedSettings.functions){
+        modifiedSettings.functions[key].displayEquation = false;
+    }
+    console.log(modifiedSettings)
+    $('textarea.custom-saved-url').text(this.saveSettingsAsUrl(modifiedSettings));
 }
