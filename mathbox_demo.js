@@ -69,6 +69,7 @@ var MathBoxDemo = function(settings){
     settings = this.sanitizeSettings(settings);
     this.settings = settings;
     this.functions = {};
+    this.animatedSliders = {};
     
     this.mathbox = this.initializeMathBox();
     this.scene = this.setupScene();
@@ -184,15 +185,15 @@ MathBoxDemo.prototype.initializeMathBox = function(){
     //Add a container for mathbox
     if (settings.containerId === null){
         settings.containerId = _.uniqueId();
-        var container = $("<div class='mathbox-container'></div>");
-        container.attr('id',settings.containerId);
-        $('body').append(container);
+        this.container = $("<div class='mathbox-container'></div>");
+        this.container.attr('id',settings.containerId);
+        $('body').append(this.container);
     } else {
-        var container = $("#"+settings.containerId)
-        container.addClass('mathbox-container');
+        this.container = $("#"+settings.containerId)
+        this.container.addClass('mathbox-container');
     }
     if (settings.frozen){
-        container.addClass('frozen')
+        this.container.addClass('frozen')
     }
     
     var plugins = ['core', 'cursor','controls'];
@@ -200,7 +201,7 @@ MathBoxDemo.prototype.initializeMathBox = function(){
     var mathbox = mathBox({
         plugins: plugins,
         controls: controls,
-        element: container[0]
+        element: this.container[0]
     });
     
     // setup camera
@@ -363,13 +364,15 @@ MathBoxDemo.prototype.customizeGui = function(gui, settings) {
 }
 
 MathBoxDemo.prototype.animateDatGuiSlider = function(slider, rate){
-    // TODO: Is this the right spot for this function?
+    // TODO: Is this the right spot for this function? Yes.
     // slider should be a dat.GUI slider object with additional property "animate"
     rate = defaultVal(rate, 1.0);
     var property = slider.property;
     var object = slider.object;
     var sliderStep = slider.__step;
     var timeStep = sliderStep * 1000 / rate;
+    
+    console.log("Animating!")
     
     var intervalId = setInterval( function(){
         if (!slider.animate){
@@ -567,6 +570,8 @@ MathBoxDemo.prototype.updateVector = function(vectorSettings) {
 
 var Demo_ParametricCurves = function(element_id, settings){
     MathBoxDemo.call(this, element_id, settings );
+    $('body').on('keydown',this.onKeyDown.bind(this));
+    // this.container.on('keydown',this.onKeyDown.bind(this));
 }
 // Next two lines for subclassing: http://stackoverflow.com/a/8460616/2747370
 Demo_ParametricCurves.prototype = Object.create( MathBoxDemo.prototype );
@@ -583,6 +588,7 @@ Demo_ParametricCurves.prototype.sanitizeSettings = function(settings) {
                 x:'3*cos(t)',
                 y:'3*sin(t)',
                 z: settings.twoDimensional ? '0' : 't/3.14',
+                animate:true,
                 displayEquation:true,
                 t: 0.1,
                 tMin: 0,
@@ -594,6 +600,7 @@ Demo_ParametricCurves.prototype.sanitizeSettings = function(settings) {
                 x:'',
                 y:'',
                 z: settings.twoDimensional ? '0' : '',
+                animate:false,
                 displayEquation:true,
                 t: 0.1,
                 tMin: -1,
@@ -605,6 +612,7 @@ Demo_ParametricCurves.prototype.sanitizeSettings = function(settings) {
                 x:'',
                 y:'',
                 z: settings.twoDimensional ? '0' : '',
+                animate:false,
                 displayEquation:true,
                 t: 0.1,
                 tMin: -1,
@@ -648,12 +656,14 @@ Demo_ParametricCurves.prototype.drawVis = function(funcSettings){
         color: 'black',
     }
     this.drawVector(posVectorSettings, group);
+
 }
 
 Demo_ParametricCurves.prototype.updateVis_t = function(funcSettings) {
 
     var t = funcSettings.t;
     var func = this.functions[funcSettings.id];
+    if (func===undefined){return}
     var x = func.xJS(t);
     var y = func.yJS(t);
     var z = func.zJS(t);
@@ -686,6 +696,10 @@ Demo_ParametricCurves.prototype.updateVis_tRange = function(funcId) {
 Demo_ParametricCurves.prototype.customizeGui = function(gui){
     var settings = this.settings;
     
+    var animatedSliders = this.animatedSliders; //for use below 
+    var updateVis_t = this.updateVis_t.bind(this); //for use below 
+    var updateVis_tRange = this.updateVis_tRange.bind(this); // for use below
+    
     var folder0 = gui.addFolder("Functions");
     $(folder0.domElement).addClass("functions-folder");
     
@@ -695,8 +709,6 @@ Demo_ParametricCurves.prototype.customizeGui = function(gui){
     addFunctionFolder('b', "Function B", false)
     addFunctionFolder('c', "Function C", false)
     
-    var updateVis_t = this.updateVis_t.bind(this); //for use below 
-    var updateVis_tRange = this.updateVis_tRange.bind(this); // for use below
     function addFunctionFolder(funcId, folderName, openFolder){
         var functionSettings = settings.functions[funcId]
         var funcFolder = folder0.addFolder(folderName);
@@ -713,33 +725,28 @@ Demo_ParametricCurves.prototype.customizeGui = function(gui){
             $(yGUI.domElement).closest('li').hide();
             $(zGUI.domElement).closest('li').hide();
         }
-        
-        // TODO: live math rendering. The next two lines might be useful.
-        // $(xGui.domElement).closest("li").after("<li style='border-top:0px'><span class='property-name'>&nbsp;</span>\\(a+b\\)</li>")
-        // $(xGui.domElement).closest("li").css('border-bottom','0');
-        
+              
         var tSlider = funcFolder.add(functionSettings, "t")
             .min(functionSettings.tMin)
             .max(functionSettings.tMax)
             .step(0.01);
         
+        animatedSliders[funcId+"-t"] = tSlider;
         tSlider.onChange( function(e){
             updateVis_t(functionSettings);
-        } )
-        if (functionSettings.x != '' && functionSettings.y != '' && functionSettings.z != ''){
-            tSlider.animate = true;
+        } );
+        tSlider.animate = functionSettings.animate;
+        if (tSlider.animate){
             MathBoxDemo.prototype.animateDatGuiSlider(tSlider);
         }
-        else {
-            tSlider.animate = false
-        }
         
-        
-        funcFolder.add(tSlider, 'animate').onChange(function(e){
+        var animateToggle = funcFolder.add(functionSettings, 'animate').onChange(function(e){
+            tSlider.animate = functionSettings.animate;
             if (e) {
                 MathBoxDemo.prototype.animateDatGuiSlider(tSlider);
             }
         });
+        animateToggle.listen()
         
         funcFolder.add(functionSettings, 'tMin').onChange( function(){
             updateVis_tRange(funcId);
@@ -751,6 +758,28 @@ Demo_ParametricCurves.prototype.customizeGui = function(gui){
         } );
         
     }
+
+}
+
+Demo_ParametricCurves.prototype.onKeyDown = function(evt){
+    var freezeSliderById = function(funcId){
+        var func = this.settings.functions[funcId];
+        var sliderId = funcId + "-t";
+        var tSlider = this.animatedSliders[sliderId];
+        if (func.x != '' && func.y != '' && func.z != 'z'){
+            func.animate = (!func.animate)
+            tSlider.animate = (!tSlider.animate);
+            if (func.animate){
+                MathBoxDemo.prototype.animateDatGuiSlider(tSlider);
+            }
+        }
+    }.bind(this)
+    
+    if (evt.which===32){ //spacebar key
+        for (var funcId in this.settings.functions){
+            freezeSliderById(funcId);
+        }
+    } 
 
 }
 
