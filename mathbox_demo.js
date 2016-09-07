@@ -61,6 +61,7 @@ function defaultVal(variable, defaultValue) {
     return typeof variable !== 'undefined' ? variable : defaultValue;
 }
 
+//TODO: Stop swizzling user input. Instead, rotate the entire mathbox. That should work, right?
 var MathBoxDemo = function(settings){
     if (typeof settings === 'string'){
         settings = this.decodeSettings64(settings);
