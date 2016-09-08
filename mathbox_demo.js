@@ -542,6 +542,7 @@ MathBoxDemo.prototype.drawVector = function(vectorSettings, parentObject) {
     var tail = vectorSettings.tail;
     var tip = vectorSettings.tip;
     var vecId = vectorSettings.id;
+    var visible = vectorSettings.visible;
     
     var color = vectorSettings.color;
     
@@ -557,7 +558,9 @@ MathBoxDemo.prototype.drawVector = function(vectorSettings, parentObject) {
     }).swizzle({
       order: this.swizzleOrder
     }).vector({
+        id: "vector-" + vecId,
         color: color,
+        visible: visible,
         width: 3,
         size: 3,
         end: true,
@@ -567,7 +570,9 @@ MathBoxDemo.prototype.drawVector = function(vectorSettings, parentObject) {
 
 MathBoxDemo.prototype.updateVector = function(vectorSettings) {
     var vectorData = this.scene.select("#data-vector-" + vectorSettings.id);
+    var vector = this.scene.select("#vector-" + vectorSettings.id);
     vectorData.set("data", [vectorSettings.tail, vectorSettings.tip] );
+    vector.set("visible", vectorSettings.visible );
 }
 
 var Demo_ParametricCurves = function(element_id, settings){
@@ -583,10 +588,23 @@ Demo_ParametricCurves.prototype.sanitizeSettings = function(settings) {
     settings = MathBoxDemo.prototype.sanitizeSettings.call(this, settings);
     // Add defaults specific to this subclass of MathBoxDemo
     // lodash merge does not deep merge arrays, so store function list as object instead
+    var defaultFunctionSettings = {
+        x:'',
+        y:'',
+        z: settings.twoDimensional ? '0' : '',
+        positionVectorVisible: true,
+        animate:false,
+        samples:64,
+        displayEquation:true,
+        t: 0.1,
+        tMin: -1,
+        tMax: +3,
+    }
     var moreDefaultSettings = {
         functions: {
-            a: {
+            a: _.merge({}, defaultFunctionSettings, {
                 id: 'a',
+                color: '#3090FF',
                 x:'3*cos(t)',
                 y:'3*sin(t)',
                 z: settings.twoDimensional ? '0' : 't/3.14',
@@ -595,35 +613,10 @@ Demo_ParametricCurves.prototype.sanitizeSettings = function(settings) {
                 displayEquation:true,
                 t: 0.1,
                 tMin: 0,
-                tMax: +6.28,
-                color: '#3090FF',
-            },
-            b: {
-                id:'b',
-                x:'',
-                y:'',
-                z: settings.twoDimensional ? '0' : '',
-                animate:false,
-                samples:64,
-                displayEquation:true,
-                t: 0.1,
-                tMin: -1,
-                tMax: +3,
-                color: 'orange'
-            },
-            c: {
-                id:'c',
-                x:'',
-                y:'',
-                z: settings.twoDimensional ? '0' : '',
-                animate:false,
-                samples:64,
-                displayEquation:true,
-                t: 0.1,
-                tMin: -1,
-                tMax: +3,
-                color: '#2db92d'
-            },
+                tMax: +6.28,   
+            }),
+            b: _.merge({}, defaultFunctionSettings, {id:'b',color: 'orange'}),
+            c: _.merge({}, defaultFunctionSettings, {id:'c',color: '#2db92d'}),
         },
     }
     this.defaultSettings = _.merge({}, moreDefaultSettings, this.defaultSettings);
@@ -656,6 +649,7 @@ Demo_ParametricCurves.prototype.drawVis = function(funcSettings){
     
     var posVectorSettings = {
         id: 'position-'+funcSettings.id,
+        visible: funcSettings.positionVectorVisible,
         tail: [0,0,0],
         tip: [x,y,z],
         color: 'black',
@@ -684,6 +678,7 @@ Demo_ParametricCurves.prototype.updateVis_t = function(funcSettings) {
     
     var posVectorSettings = {
         id: 'position-'+funcSettings.id,
+        visible: funcSettings.positionVectorVisible,
         tail: [0,0,0],
         tip: [x,y,z],
         color: 'black',
@@ -730,7 +725,15 @@ Demo_ParametricCurves.prototype.customizeGui = function(gui){
             $(yGUI.domElement).closest('li').hide();
             $(zGUI.domElement).closest('li').hide();
         }
-              
+        
+        var animateToggle = funcFolder.add(functionSettings, 'animate').onChange(function(e){
+            tSlider.animate = functionSettings.animate;
+            if (e) {
+                MathBoxDemo.prototype.animateDatGuiSlider(tSlider);
+            }
+        });
+        animateToggle.listen()
+        
         var tSlider = funcFolder.add(functionSettings, "t")
             .min(functionSettings.tMin)
             .max(functionSettings.tMax)
@@ -745,14 +748,6 @@ Demo_ParametricCurves.prototype.customizeGui = function(gui){
             MathBoxDemo.prototype.animateDatGuiSlider(tSlider);
         }
         
-        var animateToggle = funcFolder.add(functionSettings, 'animate').onChange(function(e){
-            tSlider.animate = functionSettings.animate;
-            if (e) {
-                MathBoxDemo.prototype.animateDatGuiSlider(tSlider);
-            }
-        });
-        animateToggle.listen()
-        
         funcFolder.add(functionSettings, 'tMin').onChange( function(){
             updateVis_tRange(funcId);
             tSlider.min( functionSettings.tMin );
@@ -762,6 +757,11 @@ Demo_ParametricCurves.prototype.customizeGui = function(gui){
             tSlider.max( functionSettings.tMax );
         } );
         funcFolder.add(functionSettings, 'samples');
+        
+        var moreFolder = funcFolder.addFolder("More Settings");
+        moreFolder.add(functionSettings, 'positionVectorVisible').name('Position Vector').onChange(function(){
+            updateVis_t(functionSettings);
+        });
     }
 
 }
@@ -817,8 +817,11 @@ Demo_ParametricCurves.prototype.displaySavedUrl = function(settings) {
     MathBoxDemo.prototype.displaySavedUrl.call(this, settings);
     var modifiedSettings = _.merge({},this.settings);
     for (var key in modifiedSettings.functions){
-        modifiedSettings.functions[key].displayEquation = false;
+        var funcSettings = modifiedSettings.functions[key];
+        if (funcSettings.x != '' && funcSettings.y != '' & funcSettings.z != ''){
+            funcSettings.displayEquation = false;
+        }
+        
     }
-    console.log(modifiedSettings)
     $('textarea.custom-saved-url').text(this.saveSettingsAsUrl(modifiedSettings));
 }
