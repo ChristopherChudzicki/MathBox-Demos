@@ -486,6 +486,7 @@ MathBoxDemo.prototype.drawParametricCurve = function(funcSettings, parentObject)
     var tMin = funcSettings.tMin;
     var tMax = funcSettings.tMax;
     var color = funcSettings.color;
+    var samples = funcSettings.samples;
     
     parentObject = defaultVal(parentObject, this.scene);
     var group = parentObject.group().set('classes', ['parametric-curve'])
@@ -493,7 +494,7 @@ MathBoxDemo.prototype.drawParametricCurve = function(funcSettings, parentObject)
     group.interval({
         id: "data-parametric-curve-" + funcId,
         range: [tMin, tMax],
-        width: 64,
+        width: samples,
         expr: function (emit, u, i, time) {
             emit( xJS(u), yJS(u), zJS(u) );
       },
@@ -590,6 +591,7 @@ Demo_ParametricCurves.prototype.sanitizeSettings = function(settings) {
                 y:'3*sin(t)',
                 z: settings.twoDimensional ? '0' : 't/3.14',
                 animate:true,
+                samples:64,
                 displayEquation:true,
                 t: 0.1,
                 tMin: 0,
@@ -602,6 +604,7 @@ Demo_ParametricCurves.prototype.sanitizeSettings = function(settings) {
                 y:'',
                 z: settings.twoDimensional ? '0' : '',
                 animate:false,
+                samples:64,
                 displayEquation:true,
                 t: 0.1,
                 tMin: -1,
@@ -614,6 +617,7 @@ Demo_ParametricCurves.prototype.sanitizeSettings = function(settings) {
                 y:'',
                 z: settings.twoDimensional ? '0' : '',
                 animate:false,
+                samples:64,
                 displayEquation:true,
                 t: 0.1,
                 tMin: -1,
@@ -757,7 +761,7 @@ Demo_ParametricCurves.prototype.customizeGui = function(gui){
             updateVis_tRange(funcId);
             tSlider.max( functionSettings.tMax );
         } );
-        
+        funcFolder.add(functionSettings, 'samples');
     }
 
 }
