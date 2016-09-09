@@ -184,7 +184,7 @@ MathBoxDemo.prototype.initializeMathBox = function(){
     settings = this.settings
     
     //Add a container for mathbox
-    if (settings.containerId === null){
+    if ($("#"+settings.containerId).length === 0){
         settings.containerId = _.uniqueId();
         this.container = $("<div class='mathbox-container'></div>");
         this.container.attr('id',settings.containerId);
