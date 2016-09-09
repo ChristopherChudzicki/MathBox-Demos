@@ -22,10 +22,12 @@
 <body>
 <script>
 
-var settings = {
+var userSettings = getQueryString()['settings'];
+var authorSettings = {
     twoDimensional:true,
     noZoom:true,
 };
+var settings = userSettings===undefined ? authorSettings : userSettings;
 
 var demo = new Demo_ParametricCurves(settings);
 
