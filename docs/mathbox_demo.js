@@ -70,7 +70,7 @@ var MathBoxDemo = function(settings){
     settings = this.sanitizeSettings(settings);
     this.settings = settings;
     this.functions = {};
-    this.animatedSliders = {};
+    this.animatedSliders = [];
     
     this.mathbox = this.initializeMathBox();
     this.scene = this.setupScene();
@@ -364,30 +364,60 @@ MathBoxDemo.prototype.customizeGui = function(gui, settings) {
     // To be customized by subclasses of MathBoxDemo
 }
 
-MathBoxDemo.prototype.animateDatGuiSlider = function(slider, rate){
-    // TODO: Is this the right spot for this function? Yes.
-    // slider should be a dat.GUI slider object with additional property "animate"
+MathBoxDemo.prototype.animateDatGuiSlider = function(slider, toggle, rate){
+
     rate = defaultVal(rate, 1.0);
+    var slider = slider
     var property = slider.property;
     var object = slider.object;
     var sliderStep = slider.__step;
     var timeStep = sliderStep * 1000 / rate;
     
-    console.log("Animating!")
+    this.animatedSliders.push({slider:slider,toggle:toggle, beginAnimation: beginAnimation})
+    toggle.listen();
     
-    var intervalId = setInterval( function(){
-        if (!slider.animate){
-            clearInterval(intervalId);
+    if (toggle.object[toggle.property]){
+        beginAnimation();
+    }
+    
+    toggle.onChange( function(e){
+        if (e){
+            beginAnimation();
         }
-        object[property] += sliderStep;
-        slider.updateDisplay();
-        // slider onChange function always receives slider value
-        slider.__onChange(object[property]);
-        if (object[property] > slider.__max) {
-            object[property] = slider.__min;
-        }
+    })
+    
+    
+    function beginAnimation(){
+        var intervalId = setInterval( function(){
+            if (!toggle.object[toggle.property]){
+                clearInterval(intervalId);
+            }
+            object[property] += sliderStep;
+            slider.updateDisplay();
+            // slider onChange function always receives slider value
+            slider.__onChange(object[property]);
+            if (object[property] > slider.__max) {
+                object[property] = slider.__min;
+            }
         
-    }, timeStep )
+        }, timeStep )
+    }
+}
+
+MathBoxDemo.prototype.toggleAllAnimations = function(){
+    for (var j=0; j<this.animatedSliders.length; j++){
+        var toggle = this.animatedSliders[j].toggle;
+        var newVal = ! toggle.object[toggle.property];
+        toggle.object[toggle.property] = newVal;
+        this.animatedSliders[j].beginAnimation();
+    }
+}
+
+MathBoxDemo.prototype.onKeyDown = function(evt){
+    if (evt.which===32){ //spacebar key
+        this.toggleAllAnimations();
+    } 
+
 }
 
 MathBoxDemo.prototype.lightenColor = function(color, amt){
@@ -696,20 +726,17 @@ Demo_ParametricCurves.prototype.updateVis_tRange = function(funcId) {
 Demo_ParametricCurves.prototype.customizeGui = function(gui){
     var settings = this.settings;
     
-    var animatedSliders = this.animatedSliders; //for use below 
-    var updateVis_t = this.updateVis_t.bind(this); //for use below 
-    var updateVis_tRange = this.updateVis_tRange.bind(this); // for use below
-    
     var folder0 = gui.addFolder("Functions");
     $(folder0.domElement).addClass("functions-folder");
     
     folder0.open();
     
-    addFunctionFolder('a', "Function A", true)
-    addFunctionFolder('b', "Function B", false)
-    addFunctionFolder('c', "Function C", false)
+    addFunctionFolder.call(this, 'a', "Function A", true)
+    addFunctionFolder.call(this, 'b', "Function B", false)
+    addFunctionFolder.call(this, 'c', "Function C", false)
     
     function addFunctionFolder(funcId, folderName, openFolder){
+        // call with context as the demo object.
         var functionSettings = settings.functions[funcId]
         var funcFolder = folder0.addFolder(folderName);
         if (openFolder){ funcFolder.open(); }
@@ -723,39 +750,31 @@ Demo_ParametricCurves.prototype.customizeGui = function(gui){
         if (!functionSettings.displayEquation){
             $(xGUI.domElement).closest('li').hide();
             $(yGUI.domElement).closest('li').hide();
-            $(zGUI.domElement).closest('li').hide();
-        }
-        
-        var animateToggle = funcFolder.add(functionSettings, 'animate').onChange(function(e){
-            tSlider.animate = functionSettings.animate;
-            if (e) {
-                MathBoxDemo.prototype.animateDatGuiSlider(tSlider);
+            if (!settings.twoDimensional){ 
+                $(zGUI.domElement).closest('li').hide();
             }
-        });
-        animateToggle.listen()
+        }
         
         var tSlider = funcFolder.add(functionSettings, "t")
             .min(functionSettings.tMin)
             .max(functionSettings.tMax)
             .step(0.01);
+            tSlider.onChange( function(e){
+                this.updateVis_t(functionSettings);
+            }.bind(this) );
+            
+        var animateToggle = funcFolder.add(functionSettings, 'animate').name("Animate");
         
-        animatedSliders[funcId+"-t"] = tSlider;
-        tSlider.onChange( function(e){
-            updateVis_t(functionSettings);
-        } );
-        tSlider.animate = functionSettings.animate;
-        if (tSlider.animate){
-            MathBoxDemo.prototype.animateDatGuiSlider(tSlider);
-        }
+        this.animateDatGuiSlider(tSlider, animateToggle);
         
         funcFolder.add(functionSettings, 'tMin').onChange( function(){
-            updateVis_tRange(funcId);
+            this.updateVis_tRange(funcId);
             tSlider.min( functionSettings.tMin );
-        } );
+        }.bind(this) );
         funcFolder.add(functionSettings, 'tMax').onChange( function(){
-            updateVis_tRange(funcId);
+            this.updateVis_tRange(funcId);
             tSlider.max( functionSettings.tMax );
-        } );
+        }.bind(this) );
         funcFolder.add(functionSettings, 'samples');
         
         var moreFolder = funcFolder.addFolder("More Settings");
@@ -763,28 +782,6 @@ Demo_ParametricCurves.prototype.customizeGui = function(gui){
             updateVis_t(functionSettings);
         });
     }
-
-}
-
-Demo_ParametricCurves.prototype.onKeyDown = function(evt){
-    var freezeSliderById = function(funcId){
-        var func = this.settings.functions[funcId];
-        var sliderId = funcId + "-t";
-        var tSlider = this.animatedSliders[sliderId];
-        if (func.x != '' && func.y != '' && func.z != 'z'){
-            func.animate = (!func.animate)
-            tSlider.animate = (!tSlider.animate);
-            if (func.animate){
-                MathBoxDemo.prototype.animateDatGuiSlider(tSlider);
-            }
-        }
-    }.bind(this)
-    
-    if (evt.which===32){ //spacebar key
-        for (var funcId in this.settings.functions){
-            freezeSliderById(funcId);
-        }
-    } 
 
 }
 
