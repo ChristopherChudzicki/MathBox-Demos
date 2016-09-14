@@ -20,10 +20,17 @@
     <meta name="viewport" content="initial-scale=1, maximum-scale=1">
 </head>
 <body>
+<div id="my-math-box"></div>
 <script>
+var queryString = getQueryString();
+var containerWidth = queryString.width;
+var containerHeight = queryString.height;
+$("#my-math-box").css("width", String(containerWidth) + "px")
+$("#my-math-box").css("height", String(containerHeight) + "px")
 
-var userSettings = getQueryString()['settings'];
+var userSettings = queryString['settings'];
 var authorSettings = {
+    containerId:'my-math-box',
     twoDimensional:true,
     noZoom:true,
 };

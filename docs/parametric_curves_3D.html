@@ -20,14 +20,25 @@
     <meta name="viewport" content="initial-scale=1, maximum-scale=1">
 </head>
 <body>
+<body>
+<div id="my-math-box"></div>
 <script>
+var queryString = getQueryString();
+var containerWidth = queryString.width;
+var containerHeight = queryString.height;
+$("#my-math-box").css("width", String(containerWidth) + "px")
+$("#my-math-box").css("height", String(containerHeight) + "px")
 
-var userSettings = getQueryString()['settings'];
-var authorSettings ={}
+var userSettings = queryString['settings'];
+var authorSettings = {
+    containerId:'my-math-box',
+    noZoom:true,
+};
 var settings = userSettings===undefined ? authorSettings : userSettings;
+
 var demo = new Demo_ParametricCurves(settings);
 
 </script>
-
+</body>
 </body>
 </html>
