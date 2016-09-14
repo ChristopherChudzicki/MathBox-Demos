@@ -182,7 +182,6 @@ MathBoxDemo.prototype.swizzle = function(arg, swizzleOrder){
 
 MathBoxDemo.prototype.initializeMathBox = function(){
     settings = this.settings
-    
     //Add a container for mathbox
     if ($("#"+settings.containerId).length === 0){
         settings.containerId = _.uniqueId();
