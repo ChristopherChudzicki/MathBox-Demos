@@ -508,7 +508,9 @@ var Parser = (function (scope) {
 		};
 
 		this.consts = {
-			"E": Math.E,
+			"e": Math.E,
+      "pi": Math.PI,
+      "E": Math.E,
 			"PI": Math.PI
 		};
 	}
