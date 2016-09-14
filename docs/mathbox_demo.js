@@ -779,8 +779,8 @@ Demo_ParametricCurves.prototype.customizeGui = function(gui){
         
         var moreFolder = funcFolder.addFolder("More Settings");
         moreFolder.add(functionSettings, 'positionVectorVisible').name('Position Vector').onChange(function(){
-            updateVis_t(functionSettings);
-        });
+            this.updateVis_t(functionSettings);
+        }.bind(this));
     }
 
 }
