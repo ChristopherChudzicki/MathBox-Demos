@@ -57,8 +57,8 @@ function getQueryString() {
     return query_string;
 }
 
-function defaultVal(variable, defaultValue) {
-    return typeof variable !== 'undefined' ? variable : defaultValue;
+function defaultVal(variable, defaultVal) {
+    return typeof variable !== 'undefined' ? variable : defaultVal;
 }
 
 //TODO: Stop swizzling user input. Instead, rotate the entire mathbox. That should work, right?
@@ -322,6 +322,7 @@ MathBoxDemo.prototype.redrawScene = function(){
         [range.yMin, range.yMax],
         [range.zMin, range.zMax]
     ]));
+    this.scene.set("scale", this.swizzle(this.settings.scale));
     
     // Remove old axis labels, draw new ones
     this.mathbox.remove(".axis-label");
@@ -335,25 +336,31 @@ MathBoxDemo.prototype.makeGui = function(){
     this.customizeGui(this.gui);
     
     // The rest of GUI is common to all MathBoxDemos
-    var folder = this.gui.addFolder('Window & Camera');
-	var xMinGUI = folder.add( this.settings.range, 'xMin' );
-	var xMaxGUI = folder.add( this.settings.range, 'xMax' );
-	var yMinGUI = folder.add( this.settings.range, 'yMin' );
-	var yMaxGUI = folder.add( this.settings.range, 'yMax' );
+    var folder0 = this.gui.addFolder('Window');
+	var xMinGUI = folder0.add( this.settings.range, 'xMin' );
+	var xMaxGUI = folder0.add( this.settings.range, 'xMax' );
+	var yMinGUI = folder0.add( this.settings.range, 'yMin' );
+	var yMaxGUI = folder0.add( this.settings.range, 'yMax' );
     if (!this.settings.twoDimensional){
-    	var zMinGUI = folder.add( this.settings.range, 'zMin' );
-    	var zMaxGUI = folder.add( this.settings.range, 'zMax' );
+    	var zMinGUI = folder0.add( this.settings.range, 'zMin' );
+    	var zMaxGUI = folder0.add( this.settings.range, 'zMax' );
     }
     
-    var zoomGUI = folder.add( this.settings, 'zoomEnabled' ).name("Zoom Enabled");
+    var folder1 = this.gui.addFolder('Camera & Scale');
+    
+    var zoomGUI = folder1.add( this.settings, 'zoomEnabled' ).name("Zoom Enabled");
     zoomGUI.onChange(function(){
         this.noZoom = (!this.noZoom);
     }.bind(this.mathbox.three.controls) )
     
-    var staticCameraGUI = folder.add(this.settings, 'frozen').name("Frozen");
+    var staticCameraGUI = folder1.add(this.settings, 'frozen').name("Frozen");
     staticCameraGUI.onChange(function(){
         $('#'+settings.containerId).toggleClass("frozen");
     })
+    
+    var scaleGUI = folder1.add(this.settings.scale, '0').name("X Scale");
+    var scaleGUI = folder1.add(this.settings.scale, '1').name("Y Scale");
+    var scaleGUI = folder1.add(this.settings.scale, '2').name("Z Scale");
     
     this.gui.add( this, 'redrawScene' ).name("Redraw Display");
     
@@ -434,7 +441,7 @@ MathBoxDemo.prototype.lightenColor = function(color, amt){
         return false
     }
     
-    //Now that we have hex, let's darken it
+    //Now that we have hex, let's lighten it
     //http://stackoverflow.com/a/13532993/2747370
     var R = parseInt(color.substring(1,3),16),
         G = parseInt(color.substring(3,5),16),
@@ -498,11 +505,12 @@ MathBoxDemo.prototype.parse = function(functionString, variables){
     return Parser.parse( functionString ).toJSFunction( variables )
 }
 
-MathBoxDemo.prototype.parseParametricFunction = function(functionSettings){
+MathBoxDemo.prototype.parseParametricFunction = function(functionSettings, args){
+    args = defaultVal(args, ['t']);
     var func = {}
-    func.xJS = this.parse( functionSettings.x, ['t'] );
-    func.yJS = this.parse( functionSettings.y, ['t'] );
-    func.zJS = this.parse( functionSettings.z, ['t'] );
+    func.xJS = this.parse( functionSettings.x, args );
+    func.yJS = this.parse( functionSettings.y, args );
+    func.zJS = this.parse( functionSettings.z, args );
     return func;
 }
 
@@ -534,6 +542,63 @@ MathBoxDemo.prototype.drawParametricCurve = function(funcSettings, parentObject)
       color: color,
       width: 6,
     });
+    
+}
+
+MathBoxDemo.prototype.drawParametricSurface = function(funcSettings, parentObject){
+    //funcSettings has been parsed first.
+    var funcId = funcSettings.id;
+    var xJS = this.functions[funcId].xJS;
+    var yJS = this.functions[funcId].yJS;
+    var zJS = this.functions[funcId].zJS;
+    var uMin = funcSettings.uMin;
+    var uMax = funcSettings.uMax;
+    var uSamples = defaultVal(funcSettings.uSamples, 64);
+    var vMin = funcSettings.vMin;
+    var vMax = funcSettings.vMax;
+    var vSamples = defaultVal(funcSettings.vSamples, 64);
+    var color = funcSettings.color;
+    var lineColor = this.lightenColor(color,-0.5);
+    var opacity = defaultVal(funcSettings.opacity, 0.75)
+    
+    parentObject = defaultVal(parentObject, this.scene);
+    var group = parentObject.group().set('classes', ['parametric-surface'])
+    
+    group.area({
+        width: uSamples,
+        height: vSamples,
+        rangeX: [uMin, uMax],
+        rangeY: [vMin, vMax],
+        expr: function (emit, u, v, i, j, time) {
+            emit( xJS(u,v), yJS(u,v), zJS(u,v) );
+        },
+        items: 1,
+        channels: 3,
+    }).swizzle({
+      order: this.swizzleOrder
+    }).surface({
+        shaded: true,
+        lineX: false,
+        lineY: false,
+        // points:sampler,
+        color: color,
+        opacity:opacity
+    }).group()
+        .resample({height:8})
+        .line({
+            color:lineColor,
+            opacity:opacity
+        })
+    .end()
+    .group()
+        .resample({width:8})
+        .transpose({order:'yx'})
+        .line({
+            color:lineColor,
+            opacity:opacity
+        })
+    .end();
+
     
 }
 
@@ -820,4 +885,111 @@ Demo_ParametricCurves.prototype.displaySavedUrl = function(settings) {
         
     }
     $('textarea.custom-saved-url').text(this.saveSettingsAsUrl(modifiedSettings));
+}
+
+
+var Demo_ParametricSurfaces = function(element_id, settings){
+    MathBoxDemo.call(this, element_id, settings );
+    $('body').on('keydown',this.onKeyDown.bind(this));
+    // this.container.on('keydown',this.onKeyDown.bind(this));
+}
+// Next two lines for subclassing: http://stackoverflow.com/a/8460616/2747370
+Demo_ParametricSurfaces.prototype = Object.create( MathBoxDemo.prototype );
+Demo_ParametricSurfaces.prototype.constructor = Demo_ParametricSurfaces;
+
+Demo_ParametricSurfaces.prototype.sanitizeSettings = function(settings) {
+    settings = MathBoxDemo.prototype.sanitizeSettings.call(this, settings);
+    // Add defaults specific to this subclass of MathBoxDemo
+    // lodash merge does not deep merge arrays, so store function list as object instead
+    var defaultFunctionSettings = {
+        x:'',
+        y:'',
+        z:'',
+        samples:64,
+        opacity:0.75,
+        displayEquation:true,
+        uMin: -1,
+        uMax: +3,
+        vMin: -1,
+        vMax: +3,
+    }
+    var moreDefaultSettings = {
+        functions: {
+            a: _.merge({}, defaultFunctionSettings, {
+                id: 'a',
+                color: '#3090FF',
+                x:'3*cos(u)',
+                y:'3*sin(u)',
+                z:'v',
+                animate:true,
+                samples:64,
+                uMin:0,
+                uMax:2*3.14,
+                vMin:-3,
+                vMax:+3,
+            }),
+            b: _.merge({}, defaultFunctionSettings, {id:'b',color: 'orange'}),
+            c: _.merge({}, defaultFunctionSettings, {id:'c',color: '#2db92d'}),
+        },
+    }
+    this.defaultSettings = _.merge({}, moreDefaultSettings, this.defaultSettings);
+    settings = _.merge({}, moreDefaultSettings, settings);
+    
+    return settings
+}
+
+Demo_ParametricSurfaces.prototype.customizeGui = function(gui){
+    var settings = this.settings;
+    
+    var folder0 = gui.addFolder("Functions");
+    $(folder0.domElement).addClass("functions-folder");
+    
+    folder0.open();
+    
+    addFunctionFolder.call(this, 'a', "Function A", true)
+    addFunctionFolder.call(this, 'b', "Function B", false)
+    addFunctionFolder.call(this, 'c', "Function C", false)
+    
+    function addFunctionFolder(funcId, folderName, openFolder){
+        // call with context as the demo object.
+        var functionSettings = settings.functions[funcId]
+        var funcFolder = folder0.addFolder(folderName);
+        if (openFolder){ funcFolder.open(); }
+        
+        var xGUI =funcFolder.add(functionSettings, 'x').name("<span class='equation-LHS'>X(u,v) = </span>");
+        var yGUI =funcFolder.add(functionSettings, 'y').name("<span class='equation-LHS'>Y(u,v) = </span>");
+        var zGUI = funcFolder.add(functionSettings, 'z').name("<span class='equation-LHS'>Z(u,v) = </span>");
+            
+        funcFolder.add(functionSettings, 'uMin');
+        funcFolder.add(functionSettings, 'uMax');
+        funcFolder.add(functionSettings, 'vMin');
+        funcFolder.add(functionSettings, 'vMax');
+        
+        funcFolder.add(functionSettings,'opacity');
+    }
+
+}
+
+Demo_ParametricSurfaces.prototype.drawVis = function(funcSettings){
+    this.functions[funcSettings.id] = this.parseParametricFunction(funcSettings,['u','v']);
+    var group = this.scene.group().set('classes',['function-visualization'])
+    
+    this.drawParametricSurface(funcSettings, group);
+
+}
+
+Demo_ParametricSurfaces.prototype.redrawScene = function() {
+    MathBoxDemo.prototype.redrawScene.call(this);
+    
+    // Remove curves that are already drawn
+    this.mathbox.remove(".function-visualization");
+    
+    for (var funcId in this.settings.functions) {
+        var funcSettings = this.settings.functions[funcId];
+        var isDrawable = (funcSettings.x != '') && (funcSettings.y != '') && (funcSettings.z != '')
+        if (isDrawable){
+            this.drawVis(funcSettings);
+        }
+    }
+    
 }
