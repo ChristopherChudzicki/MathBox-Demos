@@ -132,12 +132,12 @@ MathBoxDemo.prototype.sanitizeSettings = function(settings){
         
         var defaultAxisSettings = {
             axisLabel: axisLabel,
-            labelOffset: [0,25,0],
+            labelOffset: [0,40,0],
             axis: {width:2, axis: mathboxAxes[axisId]},
             scale: {divide:10, nice:true, zero:false, axis: mathboxAxes[axisId]},
             ticks: {width:2},
             ticksFormat: {digits:2},
-            ticksLabel: {offset:tickLabelOffset}
+            ticksLabel: {offset:tickLabelOffset, visible:true}
         };
         
         return defaultAxisSettings
@@ -247,18 +247,16 @@ MathBoxDemo.prototype.drawAxes = function(){
     function drawSingleAxis(axisId){
         var axisSettings = axes[axisId];
                
-        axesGroup
-            .group()
-                .set('id','axis-' + axisId)
-                .set('classes',['axis'])
-                .axis(axisSettings.axis)
-                .scale(axisSettings.scale)
-                .ticks(axisSettings.ticks)
-                .format(axisSettings.ticksFormat)
-                .label(axisSettings.ticksLabel)
-            .end();
+        axesGroup.group()
+            .set('id','axis-' + axisId)
+            .set('classes',['axis'])
+            .axis(axisSettings.axis)
+            .scale(axisSettings.scale)
+            .ticks(axisSettings.ticks)
+            .format(axisSettings.ticksFormat)
+            .label(axisSettings.ticksLabel)
+            .set('classes',['tick-labels'])
     }
-
 }
 
 MathBoxDemo.prototype.drawAxesLabels = function(){
@@ -279,7 +277,7 @@ MathBoxDemo.prototype.drawAxesLabels = function(){
         var axisNum = axisNums[axisId];
         var labelPos = [0,0,0];
         labelPos[axisNum] = scene.get().range[axisNum].y;
-        scene.group()
+        var axisLabelGroup = scene.group()
             .set('classes',['axis-label'])
             .array({
                 data: [labelPos],
@@ -287,7 +285,8 @@ MathBoxDemo.prototype.drawAxesLabels = function(){
                 live: false
             })
             .text({
-                data: [ axes[axisId].axisLabel ]
+                data: [ axes[axisId].axisLabel ],
+                weight: 'bold',
             })
             .label({
                 offset: axes[axisId].labelOffset
@@ -358,9 +357,15 @@ MathBoxDemo.prototype.makeGui = function(){
         $('#'+settings.containerId).toggleClass("frozen");
     })
     
-    var scaleGUI = folder1.add(this.settings.scale, '0').name("X Scale");
-    var scaleGUI = folder1.add(this.settings.scale, '1').name("Y Scale");
-    var scaleGUI = folder1.add(this.settings.scale, '2').name("Z Scale");
+    folder1.add(this.settings.scale, '0').name("X Scale");
+    folder1.add(this.settings.scale, '1').name("Y Scale");
+    folder1.add(this.settings.scale, '2').name("Z Scale");
+    
+    folder1.add(this.settings.axes.x.ticksLabel,'visible').name("label ticks").onChange(function(){
+        this.settings.axes.y.ticksLabel.visible = (!this.settings.axes.y.ticksLabel.visible)
+        this.settings.axes.z.ticksLabel.visible = (!this.settings.axes.z.ticksLabel.visible)
+        this.scene.select(".tick-labels").set('visible', this.settings.axes.x.ticksLabel.visible)
+    }.bind(this))
     
     this.gui.add( this, 'redrawScene' ).name("Redraw Display");
     
@@ -932,7 +937,7 @@ Demo_ParametricSurfaces.prototype.sanitizeSettings = function(settings) {
             c: _.merge({}, defaultFunctionSettings, {id:'c',color: '#2db92d'}),
         },
     }
-    this.defaultSettings = _.merge({}, moreDefaultSettings, this.defaultSettings);
+    this.defaultSettings = _.merge({}, this.defaultSettings);
     settings = _.merge({}, moreDefaultSettings, settings);
     
     return settings
