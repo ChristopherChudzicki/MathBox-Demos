@@ -913,10 +913,10 @@ Demo_ParametricSurfaces.prototype.sanitizeSettings = function(settings) {
         samples:64,
         opacity:0.75,
         displayEquation:true,
-        uMin: -1,
-        uMax: +3,
-        vMin: -1,
-        vMax: +3,
+        uMin: -2,
+        uMax: +2,
+        vMin: -2,
+        vMax: +2,
     }
     var moreDefaultSettings = {
         functions: {
