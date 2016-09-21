@@ -20,13 +20,154 @@
     <meta name="viewport" content="initial-scale=1, maximum-scale=1">
 </head>
 <body>
-<body>
 <div id="my-math-box"></div>
 <script>
 
-var demo = new MathBoxDemo({});
+// TODO: This is rather sloppy right now. Would be nicer to do the math in JS using THREE vectors rather than copy-pasting arrays from Mathematica.
+
+var demo = new MathBoxDemo({scale:[1,1,1]});
+
+var o = [0,0,0];
+var a = [1,3,0];
+var b = [2,1,0];
+var p = [-2,-2,1];
+
+var u = [0.235702, 0.235702, 0.942809];
+var v = [0.707107, -0.707107, 0.]
+
+var aPoint = {
+    x:a[0],
+    y:a[1],
+    z:a[2],
+    size:0,
+    id:'a-point',
+    label: "a",
+    color:'red'
+}
+var aVec = {
+    tip:a,
+    tail:o,
+    id:'a-vec',
+    color:'red'
+}
+
+var bPoint = {
+    x:b[0],
+    y:b[1],
+    z:b[2],
+    size:0,
+    id:'b-point',
+    label:'b'
+}
+var bVec = {
+    tip:b,
+    tail:o,
+    id:'b-vec',
+}
+
+var pPoint = {
+    x:p[0],
+    y:p[1],
+    z:p[2],
+    size:6,
+    label:'P',
+    color:'green',
+    id:'point-p'
+}
+
+var vHat = {
+    tip:[-1.29289, -2.70711, 1.],
+    tail:p,
+    width:1,
+    id:'v-hat',
+    color:'black',
+}
+var vHatLabel = {
+    x:-1.29289,
+    y: -2.70711,
+    z: 1,
+    size:0,
+    label: 'v',
+    color:'black',
+    id:'v-hat-label'
+}
+
+var wHat = {
+    tip: [-1.7643, -1.7643, 1.94281],
+    tail:p,
+    width:1,
+    id:'w-hat',
+    color:'black'
+}
+var wHatLabel = {
+    x:-1.7643,
+    y: -1.7643,
+    z: 1.94281,
+    label: 'w',
+    size:0,
+    color:'black',
+    id:'w-hat-label'
+}
+
+var aPicVec = {
+    tail:p,
+    tip:[-2.77778, -0.777778, 1.88889],
+    id:'a-pic-vec',
+    color:'red'
+}
+var bPicVec = {
+    tail:p,
+    tip:[-1.33333, -2.33333, 1.66667],
+    id:'b-pic-vec',
+}
+
+demo.functions = {};
+demo.functions.picPlane ={
+    xJS: function(u,v){ return -2*0.98+ 0.707107*u + 0.235702*v;},
+    yJS: function(u,v){ return -2*0.98+ -0.707107*u + 0.235702*v;},
+    zJS: function(u,v){ return 1*0.98+ 0.942809*v;},
+}
+
+
+var picPlane = {
+    id:'picPlane',
+    uMin:-2,
+    uMax:+2,
+    vMin:-2,
+    vMax:+2,
+    gridX: 5,
+    gridY: 5,
+    opacity:0.3,
+}
+
+var lineOfSight = {
+    tail:o,
+    tip:p,
+    color:'green',
+    id:'line-of-sight',
+    width:1,
+}
+
+demo.drawPoint(aPoint)
+demo.drawVector(aVec)
+
+demo.drawPoint(bPoint)
+demo.drawVector(bVec)
+
+demo.drawPoint(pPoint)
+
+demo.drawPoint(vHatLabel)
+demo.drawVector(vHat)
+demo.drawPoint(wHatLabel)
+demo.drawVector(wHat)
+
+demo.drawVector(aPicVec)
+demo.drawVector(bPicVec)
+
+demo.drawVector(lineOfSight)
+demo.drawParametricSurface(picPlane)
 
 </script>
-</body>
+
 </body>
 </html>

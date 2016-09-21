@@ -562,9 +562,12 @@ MathBoxDemo.prototype.drawParametricSurface = function(funcSettings, parentObjec
     var vMin = funcSettings.vMin;
     var vMax = funcSettings.vMax;
     var vSamples = defaultVal(funcSettings.vSamples, 64);
-    var color = funcSettings.color;
+    var color = defaultVal(funcSettings.color,'#3090FF');
     var lineColor = this.lightenColor(color,-0.5);
     var opacity = defaultVal(funcSettings.opacity, 0.75)
+    
+    var gridX = defaultVal(funcSettings.gridX,8);
+    var gridY = defaultVal(funcSettings.gridY,8);
     
     parentObject = defaultVal(parentObject, this.scene);
     var group = parentObject.group().set('classes', ['parametric-surface'])
@@ -589,14 +592,14 @@ MathBoxDemo.prototype.drawParametricSurface = function(funcSettings, parentObjec
         color: color,
         opacity:opacity
     }).group()
-        .resample({height:8})
+        .resample({height:gridY})
         .line({
             color:lineColor,
             opacity:opacity
         })
     .end()
     .group()
-        .resample({width:8})
+        .resample({width:gridX})
         .transpose({order:'yx'})
         .line({
             color:lineColor,
@@ -612,12 +615,15 @@ MathBoxDemo.prototype.drawPoint = function(pointSettings, parentObject) {
     var x = pointSettings.x;
     var y = pointSettings.y;
     var z = pointSettings.z;
-    var color = pointSettings.color;
+    var color = defaultVal(pointSettings.color, '#3090FF');
+    var size = defaultVal(pointSettings.size, 12)
+    
+    var label = pointSettings.label;
     
     parentObject = defaultVal(parentObject, this.scene);
     var group = parentObject.group().set('classes', ['point'])
     
-    group.array({
+    var point = group.array({
         id: "data-point-" + pointId,
         data: [x,y,z],
         live:true,
@@ -627,8 +633,17 @@ MathBoxDemo.prototype.drawPoint = function(pointSettings, parentObject) {
       order: this.swizzleOrder
     }).point({
         color: color,
-        size: 12,
+        size: size,
     });
+    
+    if (label !== undefined) {
+        point.format({
+            data:[label]
+        }).label({
+            offset:[0,30,0],
+            color:color
+        })
+    }
     
 }
 
@@ -641,14 +656,15 @@ MathBoxDemo.prototype.drawVector = function(vectorSettings, parentObject) {
     var tail = vectorSettings.tail;
     var tip = vectorSettings.tip;
     var vecId = vectorSettings.id;
-    var visible = vectorSettings.visible;
+    var visible = defaultVal(vectorSettings.visible, true);
+    var width = defaultVal(vectorSettings.width, 3);
     
-    var color = vectorSettings.color;
+    var color = defaultVal(vectorSettings.color, '#3090FF');
     
     parentObject = defaultVal(parentObject, this.scene);
     var group = parentObject.group().set('classes', ['vector'])
     
-    group.array({
+    var vec = group.array({
         id: "data-vector-" + vecId,
         data: [tail, tip],
         live:true,
@@ -660,7 +676,7 @@ MathBoxDemo.prototype.drawVector = function(vectorSettings, parentObject) {
         id: "vector-" + vecId,
         color: color,
         visible: visible,
-        width: 3,
+        width: width,
         size: 3,
         end: true,
     });
