@@ -235,14 +235,12 @@ MathBoxDemo.prototype.setupScene = function(){
 }
 
 MathBoxDemo.prototype.drawAxes = function(){
-    var axes = this.swizzle(this.settings.axes)
+    var axes = this.settings.axes;
     
     var axesGroup = this.scene.group().set('classes', ['axes-group']);
     drawSingleAxis('x');
     drawSingleAxis('y');
-    if (!this.settings.twoDimensional){
-        drawSingleAxis('z');
-    }
+    drawSingleAxis('z');
     
     function drawSingleAxis(axisId){
         var axisSettings = axes[axisId];
@@ -708,6 +706,8 @@ Demo_ParametricCurves.prototype.sanitizeSettings = function(settings) {
         y:'',
         z: settings.twoDimensional ? '0' : '',
         positionVectorVisible: true,
+        velocityVectorVisible: false,
+        velocityScale:1,
         animate:false,
         samples:64,
         displayEquation:true,
@@ -752,6 +752,14 @@ Demo_ParametricCurves.prototype.drawVis = function(funcSettings){
     var x = func.xJS(t);
     var y = func.yJS(t);
     var z = func.zJS(t);
+    var dt = 0.001;
+    var dx = func.xJS(t+dt)-func.xJS(t);
+    var dy = func.yJS(t+dt)-func.yJS(t);
+    var dz = func.zJS(t+dt)-func.zJS(t);
+    var velocityScale = funcSettings.velocityScale;
+    var vx = velocityScale*dx/dt;
+    var vy = velocityScale*dy/dt;
+    var vz = velocityScale*dz/dt;
     
     var pointSettings = {
         id:funcSettings.id,
@@ -771,6 +779,15 @@ Demo_ParametricCurves.prototype.drawVis = function(funcSettings){
     }
     this.drawVector(posVectorSettings, group);
 
+    var velocityVectorSettings = {
+        id: 'velocity-'+funcSettings.id,
+        visible: funcSettings.velocityVectorVisible,
+        tail: [x,y,z],
+        tip: [x+vx,y+vy,z+vz],
+        color: 'black',
+    }
+    this.drawVector(velocityVectorSettings, group);
+
 }
 
 Demo_ParametricCurves.prototype.updateVis_t = function(funcSettings) {
@@ -781,6 +798,14 @@ Demo_ParametricCurves.prototype.updateVis_t = function(funcSettings) {
     var x = func.xJS(t);
     var y = func.yJS(t);
     var z = func.zJS(t);
+    var dt = 0.001;
+    var dx = func.xJS(t+dt)-func.xJS(t);
+    var dy = func.yJS(t+dt)-func.yJS(t);
+    var dz = func.zJS(t+dt)-func.zJS(t);
+    var velocityScale = funcSettings.velocityScale;
+    var vx = velocityScale*dx/dt;
+    var vy = velocityScale*dy/dt;
+    var vz = velocityScale*dz/dt;
     
     var pointSettings = {
         id:funcSettings.id,
@@ -799,6 +824,16 @@ Demo_ParametricCurves.prototype.updateVis_t = function(funcSettings) {
         color: 'black',
     }
     this.updateVector(posVectorSettings);
+    
+    var velocityVectorSettings = {
+        id: 'velocity-'+funcSettings.id,
+        visible: funcSettings.velocityVectorVisible,
+        tail: [x,y,z],
+        tip: [x+vx,y+vy,z+vz],
+        color: 'black',
+    }
+
+    this.updateVector(velocityVectorSettings);
 }
 
 Demo_ParametricCurves.prototype.updateVis_tRange = function(funcId) {
@@ -864,6 +899,12 @@ Demo_ParametricCurves.prototype.customizeGui = function(gui){
         
         var moreFolder = funcFolder.addFolder("More Settings");
         moreFolder.add(functionSettings, 'positionVectorVisible').name('Position Vector').onChange(function(){
+            this.updateVis_t(functionSettings);
+        }.bind(this));
+        moreFolder.add(functionSettings, 'velocityVectorVisible').name('Velocity Vector').onChange(function(){
+            this.updateVis_t(functionSettings);
+        }.bind(this));
+        moreFolder.add(functionSettings, 'velocityScale').name('Velocity Scale').onChange(function(){
             this.updateVis_t(functionSettings);
         }.bind(this));
     }
