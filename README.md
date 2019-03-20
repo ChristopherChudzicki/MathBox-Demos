@@ -4,7 +4,7 @@ I recommend **do not use** the code in this repository. This repository contains
 
 Instead, I suggest:
 
-- For a web-based, 3d visualization tool using MathBox try [Math3d.org](https://math3d.org)
+- For a web-based, 3d visualization tool using MathBox try [Math3d.org](https://www.math3d.org)
   - repo at https://github.com/ChristopherChudzicki/math3d-react
 - For low-level MathBox examples, see the [MathBox Repository](https://github.com/unconed/mathbox)
 - For interactive MathBox examples, see [Lee Stemkoski's Github Page](https://github.com/stemkoski/stemkoski.github.com)
